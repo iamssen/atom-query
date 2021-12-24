@@ -204,7 +204,7 @@ describe('JobLoop', () => {
     const getSubscriptionJobs = () => [
       {
         key,
-        params: new QueryParams(key, [3, 4]),
+        params: new QueryParams(key, [1, 2]),
         fetch: (a, b) => Promise.resolve(a + b),
         callback: callback3,
       } as Job,
@@ -241,15 +241,14 @@ describe('JobLoop', () => {
     expect(callback1.mock.calls.length).toBe(1);
     expect(callback2.mock.calls.length).toBe(1);
     expect(callback3.mock.calls.length).toBe(1);
-    expect(callback4.mock.calls.length).toBe(1);
+    expect(callback4.mock.calls.length).toBe(0);
 
     expect(callback1.mock.calls[0][0]).toEqual({ succeed: true, value: 3 });
     expect(callback2.mock.calls[0][0]).toEqual({ succeed: true, value: 3 });
-    expect(callback3.mock.calls[0][0]).toEqual({ succeed: true, value: 7 });
-    expect(callback4.mock.calls[0][0].succeed).toBeFalsy();
+    expect(callback3.mock.calls[0][0]).toEqual({ succeed: true, value: 3 });
 
-    expect(JobLoop.debug.latestJobsLength).toBe(4);
-    expect(JobLoop.debug.latestDedupedJobsLength).toBe(3);
+    expect(JobLoop.debug.latestJobsLength).toBe(2);
+    expect(JobLoop.debug.latestDedupedJobsLength).toBe(1);
 
     expect(requestLoop.queueSize).toBe(0);
   });

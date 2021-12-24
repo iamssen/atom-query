@@ -3,7 +3,7 @@ import { composit } from '../../atoms/composit';
 import { query } from '../../atoms/query';
 import { Job } from '../../models';
 import { JobLoop } from '../JobLoop';
-import { Subscriber } from '../Subscriber';
+import { SubscriberImpl } from '../Subscriber';
 
 describe('Subscriber', () => {
   const x = query((a: number, b: number) => delay(a + b, 100));
@@ -36,8 +36,8 @@ describe('Subscriber', () => {
       }
 
       const jobLoop = new JobLoop({ getSubscriptionJobs, debug: true });
-      const subscriber1 = new Subscriber(c, jobLoop);
-      const subscriber2 = new Subscriber(c1, jobLoop);
+      const subscriber1 = new SubscriberImpl(c, jobLoop);
+      const subscriber2 = new SubscriberImpl(c1, jobLoop);
 
       subscriptionJobsFns.add(subscriber1.getSubscritionJobs);
       subscriptionJobsFns.add(subscriber2.getSubscritionJobs);

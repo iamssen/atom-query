@@ -3,15 +3,15 @@ import { CompositedQueryResult, Compositor } from '../atoms/composit';
 import { Job } from '../models';
 import { JobLoop } from './JobLoop';
 
-export interface ISubscriber<Params extends {}, R> {
+export interface Subscriber<Params extends {}, R> {
   subscribe: (observer: Partial<Observer<R>>) => Subscription;
   fetch: (params?: Params) => void;
   getSubscritionJobs: () => Job[];
   destroy: () => void;
 }
 
-export class Subscriber<Params extends {}, R>
-  implements ISubscriber<Params, R>
+export class SubscriberImpl<Params extends {}, R>
+  implements Subscriber<Params, R>
 {
   private subject = new BehaviorSubject<R | undefined>(undefined);
 

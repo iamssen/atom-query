@@ -2,7 +2,7 @@ import { Compositor } from '../atoms/composit';
 import { fetchQueries } from '../fetch/fetchQueries';
 import { Job, QueriesResult, Query, Result } from '../models';
 import { JobLoop } from './JobLoop';
-import { ISubscriber, Subscriber } from './Subscriber';
+import { Subscriber, SubscriberImpl } from './Subscriber';
 
 interface Options {
   debug?: boolean;
@@ -10,7 +10,7 @@ interface Options {
 
 export class QueryClient {
   private readonly jobLoop;
-  private readonly subscribers = new Set<Subscriber<any, any>>();
+  private readonly subscribers = new Set<SubscriberImpl<any, any>>();
 
   constructor(private readonly options: Options = {}) {
     this.jobLoop = new JobLoop({
@@ -65,9 +65,9 @@ export class QueryClient {
   >(
     source: T,
   ): T extends Compositor<infer Params, infer R>
-    ? ISubscriber<Params, R>
+    ? Subscriber<Params, R>
     : T extends (params: infer Params) => infer QR
-    ? ISubscriber<
+    ? Subscriber<
         Params,
         {
           [K in keyof QR]: QR[K] extends Query<any, infer RR>
@@ -79,21 +79,46 @@ export class QueryClient {
     const compositor: Compositor<any, any> =
       typeof source === 'function' ? new Compositor(source) : source;
 
-    const subscriber = new Subscriber(compositor, this.jobLoop);
+    const subscriber = new SubscriberImpl(compositor, this.jobLoop);
 
     this.subscribers.add(subscriber);
 
-    const obj: ISubscriber<any, any> = {
-      subscribe: subscriber.subscribe,
-      fetch: subscriber.fetch,
-      getSubscritionJobs: subscriber.getSubscritionJobs,
+    let destroyed = false;
+
+    const error = new Error(
+      `subscriber is already destroyed. do not call this after destroy()`,
+    );
+
+    const proxy: Subscriber<any, any> = {
+      subscribe: (observer) => {
+        if (destroyed) {
+          throw error;
+        }
+        return subscriber.subscribe(observer);
+      },
+      fetch: (params) => {
+        if (destroyed) {
+          throw error;
+        }
+        subscriber.fetch(params);
+      },
+      getSubscritionJobs: () => {
+        if (destroyed) {
+          throw error;
+        }
+        return subscriber.getSubscritionJobs();
+      },
       destroy: () => {
+        if (destroyed) {
+          throw error;
+        }
         subscriber.destroy();
         this.subscribers.delete(subscriber);
+        destroyed = true;
       },
     };
 
-    return obj as any;
+    return proxy as any;
   };
 
   getSubscriptions = (): Job[] => {

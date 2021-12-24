@@ -1,17 +1,8 @@
-import { fetchQueries } from '@atom-query/web/fetch/fetchQueries';
 import { Compositor } from '../atoms/composit';
+import { fetchQueries } from '../fetch/fetchQueries';
 import { Job, QueriesResult, Query, Result } from '../models';
 import { JobLoop } from './JobLoop';
-
-//export type UnifyResults<
-//  Params extends {},
-//  T extends { [key: string]: Query<any[], any> },
-//> = {
-//  observe: () => Observable<QueryResults<T>>;
-//  fetch: (params: Params) => Promise<QueryResults<T>>;
-//  refetch: (...keys: (keyof T)[]) => Promise<QueryResults<T>>;
-//  destroy: () => void;
-//};
+import { ISubscriber, Subscriber } from './Subscriber';
 
 interface Options {
   debug?: boolean;
@@ -19,6 +10,7 @@ interface Options {
 
 export class QueryClient {
   private readonly jobLoop;
+  private readonly subscribers = new Set<Subscriber<any, any>>();
 
   constructor(private readonly options: Options = {}) {
     this.jobLoop = new JobLoop({
@@ -43,7 +35,9 @@ export class QueryClient {
     ? (params: Params) => Promise<R>
     : T extends (params: infer Params) => infer QR
     ? (params: Params) => Promise<{
-        [K in keyof QR]: QR[K] extends Query<any, infer R> ? Result<R> : never;
+        [K in keyof QR]: QR[K] extends Query<any, infer RR>
+          ? Result<RR>
+          : never;
       }>
     : never => {
     const compositor: Compositor<any, any> =
@@ -70,48 +64,55 @@ export class QueryClient {
       | ((params: any) => { [key: string]: Query<any[], any> }),
   >(
     source: T,
-  ) => {};
+  ): T extends Compositor<infer Params, infer R>
+    ? ISubscriber<Params, R>
+    : T extends (params: infer Params) => infer QR
+    ? ISubscriber<
+        Params,
+        {
+          [K in keyof QR]: QR[K] extends Query<any, infer RR>
+            ? Result<RR>
+            : never;
+        }
+      >
+    : never => {
+    const compositor: Compositor<any, any> =
+      typeof source === 'function' ? new Compositor(source) : source;
 
-  //private readonly unifyControllers = new Set<UnifyController<any, any>>();
-  //
-  //public unify = <
-  //  Params extends {},
-  //  T extends { [key: string]: Query<any[], any> },
-  //>(
-  //  fn: (params: Params) => T,
-  //): UnifyResults<Params, T> => {
-  //  const controller = new UnifyController<any, any>(fn, this.requestLoop);
-  //
-  //  this.unifyControllers.add(controller);
-  //
-  //  return {
-  //    observe: controller.observe,
-  //    fetch: controller.fetch,
-  //    refetch: controller.refetch,
-  //    destroy: () => {
-  //      controller.destory();
-  //      this.unifyControllers.delete(controller);
-  //    },
-  //  };
-  //};
-  //
-  getSubscriptions = (): Job[] => {
-    //const jobs = [];
+    const subscriber = new Subscriber(compositor, this.jobLoop);
 
-    //for (const controller of this.unifyControllers) {
-    //  jobs.push(...controller.getJobs());
-    //}
+    this.subscribers.add(subscriber);
 
-    return [];
+    const obj: ISubscriber<any, any> = {
+      subscribe: subscriber.subscribe,
+      fetch: subscriber.fetch,
+      getSubscritionJobs: subscriber.getSubscritionJobs,
+      destroy: () => {
+        subscriber.destroy();
+        this.subscribers.delete(subscriber);
+      },
+    };
+
+    return obj as any;
   };
 
-  //invalidate = (...keys: symbol[]) => {
-  //  const index = new Set<symbol>(keys);
-  //
-  //  const jobs = this.getSubscriptions().filter(({ key }) => index.has(key));
-  //
-  //  for (const job of jobs) {
-  //    this.requestLoop.add(job);
-  //  }
-  //};
+  getSubscriptions = (): Job[] => {
+    const jobs = [];
+
+    for (const subscriber of this.subscribers) {
+      jobs.push(...subscriber.getSubscritionJobs());
+    }
+
+    return jobs;
+  };
+
+  invalidateSubscriptions = (...keys: symbol[]) => {
+    const index = new Set<symbol>(keys);
+
+    const jobs = this.getSubscriptions().filter(({ key }) => index.has(key));
+
+    for (const job of jobs) {
+      this.jobLoop.add(job);
+    }
+  };
 }

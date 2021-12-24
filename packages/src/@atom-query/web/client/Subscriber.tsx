@@ -3,7 +3,16 @@ import { CompositedQueryResult, Compositor } from '../atoms/composit';
 import { Job } from '../models';
 import { JobLoop } from './JobLoop';
 
-export class Subscriber<Params extends {}, R> {
+export interface ISubscriber<Params extends {}, R> {
+  subscribe: (observer: Partial<Observer<R>>) => Subscription;
+  fetch: (params?: Params) => void;
+  getSubscritionJobs: () => Job[];
+  destroy: () => void;
+}
+
+export class Subscriber<Params extends {}, R>
+  implements ISubscriber<Params, R>
+{
   private subject = new BehaviorSubject<R | undefined>(undefined);
 
   private lastParams: Params | null = null;
@@ -35,12 +44,12 @@ export class Subscriber<Params extends {}, R> {
     });
   }
 
-  subscribe(observer: Partial<Observer<R>>): Subscription {
+  subscribe = (observer: Partial<Observer<R>>): Subscription => {
     return this.subject
       .asObservable()
       .pipe(filter((value: R | undefined): value is R => !!value))
       .subscribe(observer);
-  }
+  };
 
   fetch = (params?: Params) => {
     const nextParams = params ?? this.lastParams;
@@ -69,6 +78,7 @@ export class Subscriber<Params extends {}, R> {
     }
 
     this.requestedJobs = nextJobs;
+    this.lastParams = nextParams;
 
     if (!this.executed) {
       setTimeout(this.execute, 1);
@@ -80,12 +90,14 @@ export class Subscriber<Params extends {}, R> {
     return this.lastExecutedJobs ?? [];
   };
 
-  destory = () => {
+  destroy = () => {
     this.subject.unsubscribe();
     this.resultCollector.destroy();
   };
 
   private execute = () => {
+    this.executed = false;
+
     if (!this.requestedJobs) {
       throw new Error(`requestedJobs is null`);
     }

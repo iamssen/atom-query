@@ -136,27 +136,50 @@ describe('QueryClient', () => {
     });
   });
 
-  //test('unify test', () => {
-  //  const queryClient = new QueryClient();
-  //
-  //  const { observe, fetch, refetch, destroy } = queryClient.unify(
-  //    (params: { p1: number; p2: number }) => ({
-  //      a: x(params.p1, params.p2),
-  //      b: y(params.p1),
-  //      c: z(),
-  //    }),
-  //  );
-  //
-  //  const subscription = observe().subscribe({
-  //    next: ({a, b, c}) => {
-  //
-  //    }
-  //  })
-  //
-  //  fetch({p1: 3, p2: 4}).then(({a, b, c}) => {
-  //
-  //  })
-  //
-  //  refetch('a', 'c')
-  //});
+  test('subscribe test', async () => {
+    const queryClient = new QueryClient();
+
+    const { subscribe, fetch } = queryClient.createSubscribe(
+      (params: { p1: number; p2: number }) => ({
+        x: x(params.p1, params.p2),
+        y: y(params.p1),
+        z: z(),
+      }),
+    );
+
+    let rx: number = 0;
+    let ry: number = 0;
+    let rz: string = '';
+    let count: number = 0;
+
+    expect(subscribe).not.toBeUndefined();
+    expect(fetch).not.toBeUndefined();
+
+    subscribe({
+      next: (p) => {
+        rx = p.x.succeed ? p.x.value : 0;
+        ry = p.y.succeed ? p.y.value : 0;
+        rz = p.z.succeed ? p.z.value : '';
+        count += 1;
+      },
+    });
+
+    fetch({ p1: 1, p2: 2 });
+
+    await delay(null, 200);
+
+    expect(rx).toBe(3);
+    expect(ry).toBe(1);
+    expect(rz).toBe('hello');
+    expect(count).toBe(1);
+
+    fetch();
+
+    await delay(null, 200);
+
+    expect(rx).toBe(3);
+    expect(ry).toBe(1);
+    expect(rz).toBe('hello');
+    expect(count).toBe(2);
+  });
 });

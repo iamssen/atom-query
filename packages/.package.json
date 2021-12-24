@@ -1,0 +1,14 @@
+{
+  "author": "Name <your@email.com>",
+  "license": "Apache-2.0",
+  "repository": "github:org/repo",
+  "bugs": "https://github.com/org/repo/issues",
+  "homepage": "https://github.com/org/repo/tree/main/__directory__/src/{name}",
+  "engines": {
+    "node": ">=12"
+  },
+  "publishConfig": {
+    "cache": "~/.npm",
+    "access": "public"
+  }
+}

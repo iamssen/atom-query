@@ -84,12 +84,9 @@ export class JobLoop {
   private executed: boolean = false;
 
   static debug: {
-    executionCount: number;
     latestJobsLength?: number;
     latestDedupedJobsLength?: number;
-  } = {
-    executionCount: 0,
-  };
+  } = {};
 
   constructor(private readonly options: Options = {}) {}
 
@@ -121,7 +118,6 @@ export class JobLoop {
     }
 
     if (this.options.debug === true) {
-      JobLoop.debug.executionCount += 1;
       JobLoop.debug.latestJobsLength = this.queue.length;
       JobLoop.debug.latestDedupedJobsLength = dedupedJobs.length;
     }

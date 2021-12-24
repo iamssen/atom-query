@@ -1,3 +1,5 @@
+import deepEqual from 'fast-deep-equal';
+
 export class ShallowComparableArray {
   constructor(private arr: unknown[]) {}
 
@@ -32,14 +34,7 @@ export class ShallowComparableObject {
         return false;
       }
 
-      for (const key of this.keys) {
-        //@ts-ignore
-        if (this.obj[key] !== b.obj[key]) {
-          return false;
-        }
-      }
-
-      return true;
+      return deepEqual(this.obj, b.obj);
     }
 
     return false;

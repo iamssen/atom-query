@@ -1,22 +1,21 @@
 import { delay } from '../../__helpers__/delay';
-import { Job } from '../../models';
+import { DedupedFetchTicket, FetchTicket } from '../../models';
 import { QueryParams } from '../../params/QueryParams';
 import {
-  addJobCallbacks,
-  dedupeJobs,
-  executeJobGroup,
-  JobGroup,
-  JobLoop,
-} from '../JobLoop';
+  dedupeFetchTickets,
+  executeFetchTickets,
+  FetchLoop,
+  sampleMatchedTicketCallbacksIntoDedupedTickets,
+} from '../FetchLoop';
 
-describe('JobLoop', () => {
-  test('should dedupe jobs', () => {
+describe('FetchLoop', () => {
+  test('should dedupe fetches', () => {
     // Arrange
     const key1 = Symbol();
     const key2 = Symbol();
     const key3 = Symbol();
 
-    const jobs1: Job[] = (
+    const tickets1: FetchTicket[] = (
       [
         [key1, [1, 2]],
         [key1, [1, 2]],
@@ -33,7 +32,7 @@ describe('JobLoop', () => {
       callback: () => {},
     }));
 
-    const jobs2: Job[] = (
+    const tickets2: FetchTicket[] = (
       [
         [key1, [1, 2]],
         [key1, [1, 2]],
@@ -51,28 +50,28 @@ describe('JobLoop', () => {
     }));
 
     // Act
-    const dedupedJobs1 = dedupeJobs(jobs1);
-    const dedupedJobs2 = dedupeJobs(jobs2);
+    const dedupedTickets1 = dedupeFetchTickets(tickets1);
+    const dedupedTickets2 = dedupeFetchTickets(tickets2);
 
     // Assert
     expect(key1).not.toBe(key2);
     expect(key1).not.toBe(key3);
     expect(key2).not.toBe(key3);
 
-    expect(dedupedJobs1).toHaveLength(1);
-    expect(dedupedJobs2).toHaveLength(5);
+    expect(dedupedTickets1).toHaveLength(1);
+    expect(dedupedTickets2).toHaveLength(5);
   });
 
   test('should throw error if queue is empty', () => {
     // Act / Assert
-    expect(() => dedupeJobs([])).toThrow();
+    expect(() => dedupeFetchTickets([])).toThrow();
   });
 
-  test('dedupeJobs performance test', () => {
+  test('dedupeTickets() performance test', () => {
     // Arrange
     const keys = [Symbol(), Symbol(), Symbol()];
 
-    const jobs: Job[] = Array.from({ length: 100000 }, () => {
+    const tickets: FetchTicket[] = Array.from({ length: 100000 }, () => {
       const key = keys[Math.floor(Math.random() * keys.length)];
       const params = Math.random() > 0.5 ? [1, 2] : [2, 1];
 
@@ -85,24 +84,24 @@ describe('JobLoop', () => {
     });
 
     // Act
-    console.time('dedupeJobs()');
+    console.time('dedupeTickets()');
 
-    const dedupedJobs = dedupeJobs(jobs);
+    const dedupedTickets = dedupeFetchTickets(tickets);
 
-    console.timeEnd('dedupeJobs()');
+    console.timeEnd('dedupeTickets()');
 
     // Assert
-    expect(dedupedJobs).toHaveLength(6);
+    expect(dedupedTickets).toHaveLength(6);
   });
 
-  test('should get succeed from executeJobGroup', async () => {
+  test('should get succeed from executeFetchTickets', async () => {
     // Arrange
     const key = Symbol();
 
     const callback1 = jest.fn();
     const callback2 = jest.fn();
 
-    const jobGroup: JobGroup = {
+    const ticket: DedupedFetchTicket = {
       key,
       params: new QueryParams(key, [1, 2]),
       fetch: (a: number, b: number) => delay(a + b, 100),
@@ -110,7 +109,7 @@ describe('JobLoop', () => {
     };
 
     // Act
-    await executeJobGroup(jobGroup);
+    await executeFetchTickets(ticket);
 
     // Assert
     expect(callback1.mock.calls.length).toBe(1);
@@ -120,7 +119,7 @@ describe('JobLoop', () => {
     expect(callback2.mock.calls[0][0]).toEqual({ succeed: true, value: 3 });
   });
 
-  test('should add callbacks to jobGroups', () => {
+  test('should add callbacks to dedupedFetchTickets', () => {
     const key = Symbol();
 
     const fetch = (a: number, b: number) => delay(a + b, 100);
@@ -129,14 +128,14 @@ describe('JobLoop', () => {
     const callback2 = jest.fn();
     const callback3 = jest.fn();
 
-    const jobGroup: JobGroup = {
+    const dedupedTicket: DedupedFetchTicket = {
       key,
       params: new QueryParams(key, [1, 2]),
       fetch,
       callbacks: new Set([callback1]),
     };
 
-    const jobs: Job[] = [
+    const tickets: FetchTicket[] = [
       {
         key,
         params: new QueryParams(key, [1, 2]),
@@ -157,22 +156,22 @@ describe('JobLoop', () => {
       },
     ];
 
-    addJobCallbacks([jobGroup], jobs);
+    sampleMatchedTicketCallbacksIntoDedupedTickets([dedupedTicket], tickets);
 
-    expect(jobGroup.callbacks.size).toBe(2);
-    expect(jobGroup.callbacks.has(callback1)).toBeTruthy();
-    expect(jobGroup.callbacks.has(callback2)).toBeTruthy();
-    expect(jobGroup.callbacks.has(callback3)).toBeFalsy();
+    expect(dedupedTicket.callbacks.size).toBe(2);
+    expect(dedupedTicket.callbacks.has(callback1)).toBeTruthy();
+    expect(dedupedTicket.callbacks.has(callback2)).toBeTruthy();
+    expect(dedupedTicket.callbacks.has(callback3)).toBeFalsy();
   });
 
-  test('should get failed from executeJobGroup', async () => {
+  test('should get failed from executeFetchTickets', async () => {
     // Arrange
     const key = Symbol();
 
     const callback1 = jest.fn();
     const callback2 = jest.fn();
 
-    const jobGroup: JobGroup = {
+    const dedupedFetchTicket: DedupedFetchTicket = {
       key,
       params: new QueryParams(key, [1, 2]),
       fetch: () => {
@@ -182,7 +181,7 @@ describe('JobLoop', () => {
     };
 
     // Act
-    await executeJobGroup(jobGroup);
+    await executeFetchTickets(dedupedFetchTicket);
 
     // Assert
     expect(callback1.mock.calls.length).toBe(1);
@@ -192,7 +191,7 @@ describe('JobLoop', () => {
     expect(callback1.mock.calls[0][0].succeed).toBeFalsy();
   });
 
-  test('should get result from JobLoop.add', async () => {
+  test('should get result from FetchLoop.add', async () => {
     // Arrange
     const key = Symbol();
 
@@ -201,13 +200,13 @@ describe('JobLoop', () => {
     const callback3 = jest.fn();
     const callback4 = jest.fn();
 
-    const getSubscriptionJobs = () => [
+    const getSubscribingFetchTickets = () => [
       {
         key,
         params: new QueryParams(key, [1, 2]),
         fetch: (a, b) => Promise.resolve(a + b),
         callback: callback3,
-      } as Job,
+      } as FetchTicket,
       {
         key,
         params: new QueryParams(key, [5, 6]),
@@ -215,19 +214,22 @@ describe('JobLoop', () => {
           throw new Error();
         },
         callback: callback4,
-      } as Job,
+      } as FetchTicket,
     ];
 
-    const requestLoop = new JobLoop({ getSubscriptionJobs, debug: true });
+    const fetchLoop = new FetchLoop({
+      getSubscribingFetchTickets,
+      debug: true,
+    });
 
-    requestLoop.add({
+    fetchLoop.add({
       key,
       params: new QueryParams(key, [1, 2]),
       fetch: (a, b) => Promise.resolve(a + b),
       callback: callback1,
     });
 
-    requestLoop.add({
+    fetchLoop.add({
       key,
       params: new QueryParams(key, [1, 2]),
       fetch: (a, b) => Promise.resolve(a + b),
@@ -247,9 +249,9 @@ describe('JobLoop', () => {
     expect(callback2.mock.calls[0][0]).toEqual({ succeed: true, value: 3 });
     expect(callback3.mock.calls[0][0]).toEqual({ succeed: true, value: 3 });
 
-    expect(JobLoop.debug.latestJobsLength).toBe(2);
-    expect(JobLoop.debug.latestDedupedJobsLength).toBe(1);
+    expect(FetchLoop.debug.latestFetchTicketLength).toBe(2);
+    expect(FetchLoop.debug.latestDedupedFetchTicketsLength).toBe(1);
 
-    expect(requestLoop.queueSize).toBe(0);
+    expect(fetchLoop.queueSize).toBe(0);
   });
 });

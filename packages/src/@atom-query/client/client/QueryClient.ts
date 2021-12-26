@@ -1,7 +1,7 @@
-import { Compositor } from '../atoms/composit';
+import { QueryComposer } from '../atoms/compose';
 import { fetchQueries } from '../fetch/fetchQueries';
-import { Job, QueriesResult, Query, Result } from '../models';
-import { JobLoop } from './JobLoop';
+import { FetchTicket, QueriesResult, Query, Result } from '../models';
+import { FetchLoop } from './FetchLoop';
 import { Subscriber, SubscriberImpl } from './Subscriber';
 
 interface Options {
@@ -9,29 +9,29 @@ interface Options {
 }
 
 export class QueryClient {
-  private readonly jobLoop;
+  private readonly fetchLoop;
   private readonly subscribers = new Set<SubscriberImpl<any, any>>();
 
   constructor(private readonly options: Options = {}) {
-    this.jobLoop = new JobLoop({
+    this.fetchLoop = new FetchLoop({
       debug: this.options.debug,
-      getSubscriptionJobs: this.getSubscriptions,
+      getSubscribingFetchTickets: this.getSubscribingFetchTickets,
     });
   }
 
   public fetch = <T extends { [key: string]: Query<any[], any> }>(
     queries: T,
   ): Promise<QueriesResult<T>> => {
-    return fetchQueries(queries, this.jobLoop);
+    return fetchQueries(queries, this.fetchLoop);
   };
 
   public createFetch = <
     T extends
-      | Compositor<any, any>
+      | QueryComposer<any, any>
       | ((params: any) => { [key: string]: Query<any[], any> }),
   >(
     source: T,
-  ): T extends Compositor<infer Params, infer R>
+  ): T extends QueryComposer<infer Params, infer R>
     ? (params: Params) => Promise<R>
     : T extends (params: infer Params) => infer QR
     ? (params: Params) => Promise<{
@@ -40,15 +40,16 @@ export class QueryClient {
           : never;
       }>
     : never => {
-    const compositor: Compositor<any, any> =
-      typeof source === 'function' ? new Compositor(source) : source;
-    const createCompositedQuery = compositor.create();
+    const composer: QueryComposer<any, any> =
+      typeof source === 'function' ? new QueryComposer(source) : source;
+
+    const createCompositedQuery = composer.create();
 
     return ((params: any) =>
       new Promise<any>((resolve) => {
         const { queries, map } = createCompositedQuery(params);
 
-        fetchQueries(queries, this.jobLoop).then((queryResult) => {
+        fetchQueries(queries, this.fetchLoop).then((queryResult) => {
           if (map) {
             resolve(map(queryResult));
           } else {
@@ -60,11 +61,11 @@ export class QueryClient {
 
   public createSubscribe = <
     T extends
-      | Compositor<any, any>
+      | QueryComposer<any, any>
       | ((params: any) => { [key: string]: Query<any[], any> }),
   >(
     source: T,
-  ): T extends Compositor<infer Params, infer R>
+  ): T extends QueryComposer<infer Params, infer R>
     ? Subscriber<Params, R>
     : T extends (params: infer Params) => infer QR
     ? Subscriber<
@@ -76,10 +77,10 @@ export class QueryClient {
         }
       >
     : never => {
-    const compositor: Compositor<any, any> =
-      typeof source === 'function' ? new Compositor(source) : source;
+    const composer: QueryComposer<any, any> =
+      typeof source === 'function' ? new QueryComposer(source) : source;
 
-    const subscriber = new SubscriberImpl(compositor, this.jobLoop);
+    const subscriber = new SubscriberImpl(composer, this.fetchLoop);
 
     this.subscribers.add(subscriber);
 
@@ -102,11 +103,11 @@ export class QueryClient {
         }
         subscriber.fetch(params);
       },
-      getSubscritionJobs: () => {
+      getSubscribingFetchTickets: () => {
         if (destroyed) {
           throw error;
         }
-        return subscriber.getSubscritionJobs();
+        return subscriber.getSubscribingFetchTickets();
       },
       destroy: () => {
         if (destroyed) {
@@ -121,23 +122,25 @@ export class QueryClient {
     return proxy as any;
   };
 
-  getSubscriptions = (): Job[] => {
-    const jobs = [];
+  getSubscribingFetchTickets = (): FetchTicket[] => {
+    const tickets = [];
 
     for (const subscriber of this.subscribers) {
-      jobs.push(...subscriber.getSubscritionJobs());
+      tickets.push(...subscriber.getSubscribingFetchTickets());
     }
 
-    return jobs;
+    return tickets;
   };
 
   invalidateSubscriptions = (...keys: symbol[]) => {
     const index = new Set<symbol>(keys);
 
-    const jobs = this.getSubscriptions().filter(({ key }) => index.has(key));
+    const tickets = this.getSubscribingFetchTickets().filter(({ key }) =>
+      index.has(key),
+    );
 
-    for (const job of jobs) {
-      this.jobLoop.add(job);
+    for (const ticket of tickets) {
+      this.fetchLoop.add(ticket);
     }
   };
 }

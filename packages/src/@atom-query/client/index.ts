@@ -1,4 +1,4 @@
-export * from './atoms/composit';
+export * from './atoms/compose';
 export * from './atoms/query';
 
 export * from './client/QueryClient';

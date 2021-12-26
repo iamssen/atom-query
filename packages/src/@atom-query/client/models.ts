@@ -16,7 +16,7 @@ type Fault = {
 export type Result<R> = Succeed<R> | Fault;
 
 export type QueriesResult<T extends { [key: string]: Query<any[], any> }> = {
-  readonly [P in keyof T]: T[P] extends Query<any[], infer R>
+  readonly [K in keyof T]: T[K] extends Query<any[], infer R>
     ? Result<R>
     : never;
 };
@@ -50,13 +50,17 @@ export type QueryFunction<Args extends unknown[], R extends any> = ((
 ) => Query<Args, R>) & { key: symbol };
 
 // ---------------------------------------------
-// job
+// fetch
 // ---------------------------------------------
-export type JobCallback<R> = (value: Result<R>) => void;
+export type FetchCallback<R> = (value: Result<R>) => void;
 
-export interface Job<Args extends any[] = any[], R extends any = any> {
+export interface FetchTicket<Args extends any[] = any[], R extends any = any> {
   key: symbol;
   params: QueryParams;
   fetch: (...args: Args) => Promise<R>;
-  callback: JobCallback<R>;
+  callback: FetchCallback<R>;
 }
+
+export type DedupedFetchTicket = Omit<FetchTicket, 'callback'> & {
+  callbacks: Set<FetchCallback<any>>;
+};

@@ -1,18 +1,21 @@
-import { composit } from '../../atoms/composit';
+import { compose } from '../../atoms/compose';
 import { query } from '../../atoms/query';
 
-describe('composit()', () => {
-  test('should create queries', async () => {
-    const foo = query((a: number, b: number) => Promise.resolve(a + b));
-    const bar = query((c: string) => Promise.resolve(c));
+describe('compose()', () => {
+  const foo = query((a: number, b: number) => Promise.resolve(a + b));
+  const bar = query((c: string) => Promise.resolve(c));
 
-    const c = composit((p: { a: number; b: number }) => ({
+  test('should create queries', async () => {
+    // Arrange
+    const c = compose((p: { a: number; b: number }) => ({
       x: foo(p.a, p.b),
       y: bar(p.a.toString()),
     }));
 
+    // Act
     const { queries, map } = c.create()({ a: 1, b: 2 });
 
+    // Assert
     expect(queries['x'].params.key).toBe(queries['x'].key);
     expect(queries['x'].params.args).toEqual([1, 2]);
     expect(queries['y'].params.key).toBe(queries['y'].key);
@@ -27,18 +30,18 @@ describe('composit()', () => {
   });
 
   test('should create map', async () => {
-    const foo = query((a: number, b: number) => Promise.resolve(a + b));
-    const bar = query((c: string) => Promise.resolve(c));
-
-    const c = composit((p: { a: number; b: number }) => ({
+    // Arrange
+    const c = compose((p: { a: number; b: number }) => ({
       x: foo(p.a, p.b),
       y: bar(p.a.toString()),
     }))
       .map(({ x, y }) => JSON.stringify({ x, y }))
       .map((json) => `json: ${json}`);
 
+    // Act
     const { queries, map } = c.create()({ a: 1, b: 2 });
 
+    // Assert
     expect(queries['x'].params.key).toBe(queries['x'].key);
     expect(queries['x'].params.args).toEqual([1, 2]);
     expect(queries['y'].params.key).toBe(queries['y'].key);

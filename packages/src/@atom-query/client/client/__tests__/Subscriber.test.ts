@@ -1,8 +1,8 @@
 import { delay } from '../../__helpers__/delay';
-import { composit } from '../../atoms/composit';
+import { compose } from '../../atoms/compose';
 import { query } from '../../atoms/query';
-import { Job } from '../../models';
-import { JobLoop } from '../JobLoop';
+import { FetchTicket } from '../../models';
+import { FetchLoop } from '../FetchLoop';
 import { SubscriberImpl } from '../Subscriber';
 
 describe('Subscriber', () => {
@@ -10,7 +10,7 @@ describe('Subscriber', () => {
   const y = query((a: number) => delay(a, 100));
   const z = query(() => delay('hello', 100));
 
-  const c = composit((params: { a: number; b: number }) => ({
+  const c = compose((params: { a: number; b: number }) => ({
     x: x(params.a, params.b),
     y: y(params.a),
     z: z(),
@@ -25,22 +25,25 @@ describe('Subscriber', () => {
   test(
     'subscribe test',
     async () => {
-      const subscriptionJobsFns = new Set<() => Job[]>();
+      const subscribingFetchTicketFns = new Set<() => FetchTicket[]>();
 
-      function getSubscriptionJobs() {
+      function getSubscribingFetchTickets() {
         const arr = [];
-        for (const fn of subscriptionJobsFns) {
+        for (const fn of subscribingFetchTicketFns) {
           arr.push(...fn());
         }
         return arr;
       }
 
-      const jobLoop = new JobLoop({ getSubscriptionJobs, debug: true });
-      const subscriber1 = new SubscriberImpl(c, jobLoop);
-      const subscriber2 = new SubscriberImpl(c1, jobLoop);
+      const fetchLoop = new FetchLoop({
+        getSubscribingFetchTickets: getSubscribingFetchTickets,
+        debug: true,
+      });
+      const subscriber1 = new SubscriberImpl(c, fetchLoop);
+      const subscriber2 = new SubscriberImpl(c1, fetchLoop);
 
-      subscriptionJobsFns.add(subscriber1.getSubscritionJobs);
-      subscriptionJobsFns.add(subscriber2.getSubscritionJobs);
+      subscribingFetchTicketFns.add(subscriber1.getSubscribingFetchTickets);
+      subscribingFetchTicketFns.add(subscriber2.getSubscribingFetchTickets);
 
       let value1: any;
       let value2: any;
@@ -70,11 +73,11 @@ describe('Subscriber', () => {
       expect(value1).toBe(`3:1:hello:1`);
       expect(value2).toBe(`3:1:hello:2`);
 
-      expect(JobLoop.debug.latestJobsLength).toBe(6);
-      expect(JobLoop.debug.latestDedupedJobsLength).toBe(3);
+      expect(FetchLoop.debug.latestFetchTicketLength).toBe(6);
+      expect(FetchLoop.debug.latestDedupedFetchTicketsLength).toBe(3);
 
       // add and getSubscriptionJobs
-      jobLoop.add({
+      fetchLoop.add({
         ...y(1),
         callback: jest.fn(),
       });
@@ -83,8 +86,8 @@ describe('Subscriber', () => {
 
       expect(value1).toBe(`3:1:hello:3`);
       expect(value2).toBe(`3:1:hello:4`);
-      expect(JobLoop.debug.latestJobsLength).toBe(1);
-      expect(JobLoop.debug.latestDedupedJobsLength).toBe(1);
+      expect(FetchLoop.debug.latestFetchTicketLength).toBe(1);
+      expect(FetchLoop.debug.latestDedupedFetchTicketsLength).toBe(1);
     },
     1000 * 60 * 0.3,
   );

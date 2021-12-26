@@ -1,9 +1,9 @@
-import { JobLoop } from '../client/JobLoop';
-import { Job, QueriesResult, Query, Result } from '../models';
+import { FetchLoop } from '../client/FetchLoop';
+import { FetchTicket, QueriesResult, Query, Result } from '../models';
 
 export async function fetchQueries<
   T extends { [key: string]: Query<any[], any> },
->(queries: T, jobLoop: JobLoop): Promise<QueriesResult<T>> {
+>(queries: T, fetchLoop: FetchLoop): Promise<QueriesResult<T>> {
   const promises: Promise<any>[] = [];
 
   const keys = Object.keys(queries);
@@ -17,14 +17,14 @@ export async function fetchQueries<
       callback = resolve;
     });
 
-    const job: Job = {
+    const ticket: FetchTicket = {
       key: query.key,
       params: query.params,
       fetch: query.fetch,
       callback: callback!,
     };
 
-    jobLoop.add(job);
+    fetchLoop.add(ticket);
 
     promises.push(promise);
   }

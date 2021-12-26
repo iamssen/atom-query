@@ -1,8 +1,8 @@
 import { delay } from '../../__helpers__/delay';
-import { composit } from '../../atoms/composit';
+import { compose } from '../../atoms/compose';
 import { query } from '../../atoms/query';
 import { pickQueriesValue, Result } from '../../models';
-import { JobLoop } from '../JobLoop';
+import { FetchLoop } from '../FetchLoop';
 import { QueryClient } from '../QueryClient';
 
 describe('QueryClient', () => {
@@ -10,7 +10,7 @@ describe('QueryClient', () => {
   const y = query((a: number) => delay(a, 100));
   const z = query(() => delay('hello', 100));
 
-  const c = composit((params: { a: number; b: number }) => ({
+  const c = compose((params: { a: number; b: number }) => ({
     x: x(params.a, params.b),
     y: y(params.a),
     z: z(),
@@ -78,8 +78,8 @@ describe('QueryClient', () => {
       e: 'hello',
     });
 
-    expect(JobLoop.debug.latestJobsLength).toBe(10);
-    expect(JobLoop.debug.latestDedupedJobsLength).toBe(3);
+    expect(FetchLoop.debug.latestFetchTicketLength).toBe(10);
+    expect(FetchLoop.debug.latestDedupedFetchTicketsLength).toBe(3);
   });
 
   test('createFetch test', async () => {

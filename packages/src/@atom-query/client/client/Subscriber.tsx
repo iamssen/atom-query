@@ -1,12 +1,12 @@
 import { BehaviorSubject, filter, Observer, Subject, Subscription } from 'rxjs';
-import { CompositedQueryResult, Compositor } from '../atoms/composit';
-import { Job } from '../models';
-import { JobLoop } from './JobLoop';
+import { ComposedQueryResult, QueryComposer } from '../atoms/compose';
+import { FetchTicket } from '../models';
+import { FetchLoop } from './FetchLoop';
 
 export interface Subscriber<Params extends {}, R> {
   subscribe: (observer: Partial<Observer<R>>) => Subscription;
   fetch: (params?: Params) => void;
-  getSubscritionJobs: () => Job[];
+  getSubscribingFetchTickets: () => FetchTicket[];
   destroy: () => void;
 }
 
@@ -16,23 +16,24 @@ export class SubscriberImpl<Params extends {}, R>
   private subject = new BehaviorSubject<R | undefined>(undefined);
 
   private lastParams: Params | null = null;
-  private requestedJobs: Job[] | null = null;
-  private lastExecutedJobs: Job[] | null = null;
+  private requestedTickets: FetchTicket[] | null = null;
+  private lastExecutedTickets: FetchTicket[] | null = null;
 
   private executed: boolean = false;
 
-  private readonly compositedQuery: (
+  private readonly composedQueryResult: (
     params: Params,
-  ) => CompositedQueryResult<R>;
+  ) => ComposedQueryResult<R>;
+
   private readonly resultCollector: QueryResultCollector;
 
   constructor(
-    private readonly compositor: Compositor<Params, R>,
-    private readonly jobLoop: JobLoop,
+    private readonly composer: QueryComposer<Params, R>,
+    private readonly fetchLoop: FetchLoop,
   ) {
-    this.compositedQuery = compositor.create();
+    this.composedQueryResult = composer.create();
 
-    const { queries: dummyQueries, map } = this.compositedQuery({} as any);
+    const { queries: dummyQueries, map } = this.composedQueryResult({} as any);
     this.resultCollector = new QueryResultCollector(Object.keys(dummyQueries));
 
     this.resultCollector.subscribe({
@@ -58,26 +59,26 @@ export class SubscriberImpl<Params extends {}, R>
       return;
     }
 
-    const { queries } = this.compositedQuery(nextParams);
+    const { queries } = this.composedQueryResult(nextParams);
 
     const keys = Object.keys(queries);
 
-    const nextJobs: Job[] = [];
+    const nextTickets: FetchTicket[] = [];
 
     for (const key of keys) {
       const query = queries[key];
 
-      const job: Job = {
+      const ticket: FetchTicket = {
         key: query.key,
         params: query.params,
         fetch: query.fetch,
         callback: this.resultCollector.getCallback(key),
       };
 
-      nextJobs.push(job);
+      nextTickets.push(ticket);
     }
 
-    this.requestedJobs = nextJobs;
+    this.requestedTickets = nextTickets;
     this.lastParams = nextParams;
 
     if (!this.executed) {
@@ -86,8 +87,8 @@ export class SubscriberImpl<Params extends {}, R>
     }
   };
 
-  getSubscritionJobs = (): Job[] => {
-    return this.lastExecutedJobs ?? [];
+  getSubscribingFetchTickets = (): FetchTicket[] => {
+    return this.lastExecutedTickets ?? [];
   };
 
   destroy = () => {
@@ -98,16 +99,16 @@ export class SubscriberImpl<Params extends {}, R>
   private execute = () => {
     this.executed = false;
 
-    if (!this.requestedJobs) {
-      throw new Error(`requestedJobs is null`);
+    if (!this.requestedTickets) {
+      throw new Error(`requestedTickets is null`);
     }
 
-    for (const job of this.requestedJobs) {
-      this.jobLoop.add(job);
+    for (const ticket of this.requestedTickets) {
+      this.fetchLoop.add(ticket);
     }
 
-    this.lastExecutedJobs = this.requestedJobs;
-    this.requestedJobs = null;
+    this.lastExecutedTickets = this.requestedTickets;
+    this.requestedTickets = null;
   };
 }
 

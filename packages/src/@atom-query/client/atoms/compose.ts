@@ -1,41 +1,35 @@
-import { Query, Result } from '../models';
+import { QueriesResult, Query } from '../models';
 
-export function composit<
+export function compose<
   Params extends {},
   R extends { [key: string]: Query<any, any> },
 >(fn: (params: Params) => R) {
-  return new Compositor<
-    Params,
-    {
-      readonly [K in keyof R]: R[K] extends Query<any[], infer V>
-        ? Result<V>
-        : never;
-    }
-  >(fn);
+  return new QueryComposer<Params, QueriesResult<R>>(fn);
 }
 
-type MapFunction<T, R> = (x: T) => R | Promise<R>;
-export type CompositedQueryResult<R> = {
+type MapOperator<T, R> = (x: T) => R | Promise<R>;
+
+export type ComposedQueryResult<R> = {
   queries: { [key: string]: Query<any, any> };
   map?: (queryResult: any) => Promise<R>;
 };
 
-export class Compositor<Params extends {}, R> {
-  private fns: MapFunction<any, any>[] = [];
+export class QueryComposer<Params extends {}, R> {
+  private fns: MapOperator<any, any>[] = [];
 
   constructor(
     private readonly fn: (params: Params) => { [key: string]: Query<any, any> },
   ) {}
 
-  map = <R2>(fn: MapFunction<R, R2>): Compositor<Params, R2> => {
-    const next = new Compositor<Params, R2>(this.fn);
+  map = <R2>(fn: MapOperator<R, R2>): QueryComposer<Params, R2> => {
+    const next = new QueryComposer<Params, R2>(this.fn);
     next.fns = [...this.fns, fn];
     return next;
   };
 
   create =
     () =>
-    (params: Params): CompositedQueryResult<R> => {
+    (params: Params): ComposedQueryResult<R> => {
       const queries: { [key: string]: Query<any[], any> } = this.fn(params);
 
       if (this.fns.length === 0) {

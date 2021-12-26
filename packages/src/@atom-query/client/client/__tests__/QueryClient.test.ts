@@ -139,13 +139,12 @@ describe('QueryClient', () => {
   test('subscribe test', async () => {
     const queryClient = new QueryClient();
 
-    const { subscribe, fetch, destroy } = queryClient.createSubscribe(
-      (params: { p1: number; p2: number }) => ({
+    const { subscribe, fetch, getSubscribingFetchTickets, destroy } =
+      queryClient.createSubscribe((params: { p1: number; p2: number }) => ({
         x: x(params.p1, params.p2),
         y: y(params.p1),
         z: z(),
-      }),
-    );
+      }));
 
     let rx: number = 0;
     let ry: number = 0;
@@ -182,10 +181,35 @@ describe('QueryClient', () => {
     expect(rz).toBe('hello');
     expect(count).toBe(2);
 
+    expect(getSubscribingFetchTickets()).toHaveLength(3);
+
+    queryClient.invalidateSubscriptions(x.key, y.key);
+
+    await delay(null, 200);
+
+    expect(rx).toBe(3);
+    expect(ry).toBe(1);
+    expect(rz).toBe('hello');
+    expect(count).toBe(3);
+
     destroy();
+
+    expect(() => {
+      subscribe({
+        next: () => {},
+      });
+    }).toThrow();
 
     expect(() => {
       fetch();
     }).toThrow();
+
+    expect(() => {
+      getSubscribingFetchTickets();
+    }).toThrow();
+
+    expect(() => {
+      destroy();
+    }).not.toThrow();
   });
 });

@@ -91,4 +91,58 @@ describe('Subscriber', () => {
     },
     1000 * 60 * 0.3,
   );
+
+  test('should get result on sequence', async () => {
+    const ticket = query((v: number, t: number) => delay(v, t));
+
+    const composer = compose((params: { v: number; t: number }) => ({
+      x: ticket(params.v, params.t),
+    }));
+
+    const fetchLoop = new FetchLoop();
+
+    const subscriber = new SubscriberImpl(composer, fetchLoop);
+
+    let values: any[] = [];
+    let count: number = 0;
+
+    subscriber.subscribe({
+      next: (r) => {
+        values.push(r.x.succeed && r.x.value);
+        count += 1;
+      },
+    });
+
+    // do not pass result value (ignore) if there is newer fetchSequence
+    // Case 1. if first fetch is respond after 2nd fetch
+    // 1st fetch ----------------------> Ignore
+    // 2nd fetch --------> OK
+    subscriber.fetch({ v: 10, t: 100 });
+
+    await delay(null, 10);
+
+    subscriber.fetch({ v: 20, t: 10 });
+
+    await delay(null, 200);
+
+    expect(values).toEqual([20]);
+    expect(count).toBe(1);
+
+    // Case 2. if first fetch is respond beofre 2nd fetch
+    // 1st fetch --------> OK
+    // 2nd fetch ----------------------> OK
+    values.length = 0;
+    count = 0;
+
+    subscriber.fetch({ v: 10, t: 50 });
+
+    await delay(null, 10);
+
+    subscriber.fetch({ v: 20, t: 100 });
+
+    await delay(null, 200);
+
+    expect(values).toEqual([10, 20]);
+    expect(count).toBe(2);
+  });
 });

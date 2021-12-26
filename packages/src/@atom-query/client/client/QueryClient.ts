@@ -111,7 +111,7 @@ export class QueryClient {
       },
       destroy: () => {
         if (destroyed) {
-          throw error;
+          return;
         }
         subscriber.destroy();
         this.subscribers.delete(subscriber);

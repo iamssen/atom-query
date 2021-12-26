@@ -25,7 +25,7 @@ export class SubscriberImpl<Params extends {}, R>
     params: Params,
   ) => ComposedQueryResult<R>;
 
-  private readonly resultCollector: QueryResultCollector;
+  private readonly fetchResultCombiner: FetchResultCombiner;
 
   constructor(
     private readonly composer: QueryComposer<Params, R>,
@@ -34,9 +34,12 @@ export class SubscriberImpl<Params extends {}, R>
     this.composedQueryResult = composer.create();
 
     const { queries: dummyQueries, map } = this.composedQueryResult({} as any);
-    this.resultCollector = new QueryResultCollector(Object.keys(dummyQueries));
 
-    this.resultCollector.subscribe({
+    this.fetchResultCombiner = new FetchResultCombiner(
+      Object.keys(dummyQueries),
+    );
+
+    this.fetchResultCombiner.subscribe({
       next: (value) => {
         const nextResult = map ? map(value) : value;
 
@@ -65,6 +68,8 @@ export class SubscriberImpl<Params extends {}, R>
 
     const nextTickets: FetchTicket[] = [];
 
+    const fetchTime: number = Date.now();
+
     for (const key of keys) {
       const query = queries[key];
 
@@ -72,7 +77,7 @@ export class SubscriberImpl<Params extends {}, R>
         key: query.key,
         params: query.params,
         fetch: query.fetch,
-        callback: this.resultCollector.getCallback(key),
+        callback: this.fetchResultCombiner.getCallback(key, fetchTime),
       };
 
       nextTickets.push(ticket);
@@ -93,7 +98,7 @@ export class SubscriberImpl<Params extends {}, R>
 
   destroy = () => {
     this.subject.unsubscribe();
-    this.resultCollector.destroy();
+    this.fetchResultCombiner.destroy();
   };
 
   private execute = () => {
@@ -112,17 +117,22 @@ export class SubscriberImpl<Params extends {}, R>
   };
 }
 
-class QueryResultCollector {
+class FetchResultCombiner {
   private subject = new Subject();
   private values = new Map<string, any>();
   private callbacks: Map<string, (value: any) => void>;
 
   private executed: boolean = false;
 
+  private sequences: Map<string, Set<number>>;
+
   constructor(private keys: string[]) {
     this.callbacks = new Map<string, (value: any) => void>();
+    this.sequences = new Map<string, Set<number>>();
 
     for (const key of keys) {
+      this.sequences.set(key, new Set<number>());
+
       this.callbacks.set(key, (value: any) => {
         this.values.set(key, value);
 
@@ -134,11 +144,35 @@ class QueryResultCollector {
     }
   }
 
-  getCallback = (key: string) => {
+  getCallback = (key: string, time: number) => {
     if (!this.callbacks.has(key)) {
       throw new Error(`Undefined callback for "${key}"`);
     }
-    return this.callbacks.get(key)!;
+
+    const callback = this.callbacks.get(key)!;
+    const sequence = this.sequences.get(key)!;
+
+    // do not pass result value (ignore) if there is newer fetchSequence
+    // Case 1. if first fetch is respond after 2nd fetch
+    // 1st fetch ----------------------> Ignore
+    // 2nd fetch --------> OK
+    // Case 2. if first fetch is respond beofre 2nd fetch
+    // 1st fetch --------> OK
+    // 2nd fetch ----------------------> OK
+    sequence.add(time);
+
+    return (value: any) => {
+      if (sequence.has(time)) {
+        callback(value);
+      }
+
+      // remove staled sequence
+      for (const seqTime of sequence) {
+        if (seqTime < time) {
+          sequence.delete(seqTime);
+        }
+      }
+    };
   };
 
   subscribe = (observer: Partial<Observer<any>>) => {

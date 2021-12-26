@@ -1,9 +1,9 @@
 {
-  "author": "Name <your@email.com>",
+  "author": "Seoyeon Lee <i@ssen.name>",
   "license": "Apache-2.0",
-  "repository": "github:org/repo",
-  "bugs": "https://github.com/org/repo/issues",
-  "homepage": "https://github.com/org/repo/tree/main/__directory__/src/{name}",
+  "repository": "github:iamssen/atom-query",
+  "bugs": "https://github.com/iamssen/atom-query/issues",
+  "homepage": "https://github.com/iamssen/atom-query/tree/main/packages/src/{name}",
   "engines": {
     "node": ">=12"
   },

@@ -15265,6 +15265,7 @@ __metadata:
     react-dom: ^17.0.2
     react-scripts: ^4.0.3
     rocket-punch: ^3.0.3
+    rxjs: ^7.4.0
     ts-node: ^10.4.0
     tsconfig-paths: ^3.12.0
     typescript: ^4.5.2

@@ -31,13 +31,17 @@ export type CreateComposedQuery<Params extends {}, R> = (
 
 export class QueryComposer<Params extends {}, R> {
   private mappers: MapOperator<any, any>[] = [];
-  private intercepters: InterceptOperator<any, any>[] = [];
+  private interceptors: InterceptOperator<any, any>[] = [];
 
   constructor(
     private readonly fn: (params: Params) => { [key: string]: Query<any, any> },
   ) {}
 
   map = <R2>(op: MapOperator<R, R2>): QueryComposer<Params, R2> => {
+    if (this.interceptors.length > 0) {
+      throw new Error(`Can not call map() after intercept()`);
+    }
+
     const next = new QueryComposer<Params, R2>(this.fn);
     next.mappers = [...this.mappers, op];
     return next;
@@ -47,7 +51,7 @@ export class QueryComposer<Params extends {}, R> {
     op: InterceptOperator<Params, Params2, R2>,
   ): QueryComposer<Params2, R | R2> => {
     const next = new QueryComposer<Params2, R | R2>(this.fn as any);
-    next.intercepters = [op, ...this.intercepters];
+    next.interceptors = [op, ...this.interceptors];
     return next;
   };
 
@@ -56,12 +60,12 @@ export class QueryComposer<Params extends {}, R> {
     (params: Params): ComposedQueryResult<R> | InterceptedQueryResult<R> => {
       let resolvedParams: any = params;
 
-      if (this.intercepters.length > 0) {
+      if (this.interceptors.length > 0) {
         let i: number = -1;
-        const max: number = this.intercepters.length;
+        const max: number = this.interceptors.length;
         while (++i < max) {
           const interceptResult = resolveIntercept(
-            this.intercepters[i],
+            this.interceptors[i],
             resolvedParams,
           );
 

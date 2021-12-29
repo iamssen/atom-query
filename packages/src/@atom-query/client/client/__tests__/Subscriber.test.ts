@@ -145,4 +145,9 @@ describe('Subscriber', () => {
     expect(values).toEqual([10, 20]);
     expect(count).toBe(2);
   });
+
+  test('should return queryKeys', () => {
+    expect(c.queryKeys()).toEqual(['x', 'y', 'z']);
+    expect(c1.queryKeys()).toEqual(['x', 'y', 'z']);
+  });
 });

@@ -1,5 +1,5 @@
 import { BehaviorSubject, filter, Observer, Subject, Subscription } from 'rxjs';
-import { ComposedQueryResult, QueryComposer } from '../atoms/compose';
+import { CreateComposedQuery, QueryComposer } from '../atoms/compose';
 import { FetchTicket } from '../models';
 import { FetchLoop } from './FetchLoop';
 
@@ -21,9 +21,7 @@ export class SubscriberImpl<Params extends {}, R>
 
   private executed: boolean = false;
 
-  private readonly composedQueryResult: (
-    params: Params,
-  ) => ComposedQueryResult<R>;
+  private readonly createComposedQuery: CreateComposedQuery<Params, R>;
 
   private readonly fetchResultCombiner: FetchResultCombiner;
 
@@ -31,13 +29,12 @@ export class SubscriberImpl<Params extends {}, R>
     private readonly composer: QueryComposer<Params, R>,
     private readonly fetchLoop: FetchLoop,
   ) {
-    this.composedQueryResult = composer.create();
+    this.createComposedQuery = composer.create();
 
-    const { queries: dummyQueries, map } = this.composedQueryResult({} as any);
+    const queryKeys = composer.queryKeys();
+    const map = composer.createMap();
 
-    this.fetchResultCombiner = new FetchResultCombiner(
-      Object.keys(dummyQueries),
-    );
+    this.fetchResultCombiner = new FetchResultCombiner(queryKeys);
 
     this.fetchResultCombiner.subscribe({
       next: (value) => {
@@ -62,33 +59,42 @@ export class SubscriberImpl<Params extends {}, R>
       return;
     }
 
-    const { queries } = this.composedQueryResult(nextParams);
+    const r = this.createComposedQuery(nextParams);
 
-    const keys = Object.keys(queries);
+    if ('result' in r) {
+      this.subject.next(r.result);
 
-    const nextTickets: FetchTicket[] = [];
+      this.fetchResultCombiner.clear();
+      this.requestedTickets = null;
+      this.lastParams = nextParams;
+      this.executed = false;
+    } else {
+      const keys = Object.keys(r.queries);
 
-    const fetchTime: number = Date.now();
+      const nextTickets: FetchTicket[] = [];
 
-    for (const key of keys) {
-      const query = queries[key];
+      const fetchTime: number = Date.now();
 
-      const ticket: FetchTicket = {
-        key: query.key,
-        params: query.params,
-        fetch: query.fetch,
-        callback: this.fetchResultCombiner.getCallback(key, fetchTime),
-      };
+      for (const key of keys) {
+        const query = r.queries[key];
 
-      nextTickets.push(ticket);
-    }
+        const ticket: FetchTicket = {
+          key: query.key,
+          params: query.params,
+          fetch: query.fetch,
+          callback: this.fetchResultCombiner.getCallback(key, fetchTime),
+        };
 
-    this.requestedTickets = nextTickets;
-    this.lastParams = nextParams;
+        nextTickets.push(ticket);
+      }
 
-    if (!this.executed) {
-      setTimeout(this.execute, 1);
-      this.executed = true;
+      this.requestedTickets = nextTickets;
+      this.lastParams = nextParams;
+
+      if (!this.executed) {
+        setTimeout(this.execute, 1);
+        this.executed = true;
+      }
     }
   };
 
@@ -181,6 +187,10 @@ class FetchResultCombiner {
 
   destroy = () => {
     this.subject.unsubscribe();
+  };
+
+  clear = () => {
+    this.sequences.clear();
   };
 
   private check = () => {

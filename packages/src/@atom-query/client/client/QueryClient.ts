@@ -40,26 +40,94 @@ export class QueryClient {
           : never;
       }>
     : never => {
-    const composer: QueryComposer<any, any> =
-      typeof source === 'function' ? new QueryComposer(source) : source;
-
-    const createCompositedQuery = composer.create();
-
-    return ((params: any) =>
-      new Promise<any>((resolve) => {
-        const { queries, map } = createCompositedQuery(params);
-
-        fetchQueries(queries, this.fetchLoop).then((queryResult) => {
-          if (map) {
-            resolve(map(queryResult));
-          } else {
-            resolve(queryResult);
-          }
-        });
-      })) as any;
+    return this.createComposerFetch(source);
   };
 
   public createSubscribe = <
+    T extends
+      | QueryComposer<any, any>
+      | ((params: any) => { [key: string]: Query<any[], any> }),
+  >(
+    source: T,
+  ): T extends QueryComposer<infer Params, infer R>
+    ? Subscriber<Params, R>
+    : T extends (params: infer Params) => infer QR
+    ? Subscriber<
+        Params,
+        {
+          [K in keyof QR]: QR[K] extends Query<any, infer RR>
+            ? Result<RR>
+            : never;
+        }
+      >
+    : never => {
+    return this.createComposerSubscribe(source);
+  };
+
+  getSubscribingFetchTickets = (): FetchTicket[] => {
+    const tickets = [];
+
+    for (const subscriber of this.subscribers) {
+      tickets.push(...subscriber.getSubscribingFetchTickets());
+    }
+
+    return tickets;
+  };
+
+  invalidateSubscriptions = (...keys: symbol[]) => {
+    const index = new Set<symbol>(keys);
+
+    const tickets = this.getSubscribingFetchTickets().filter(({ key }) =>
+      index.has(key),
+    );
+
+    for (const ticket of tickets) {
+      this.fetchLoop.add(ticket);
+    }
+  };
+
+  // ---------------------------------------------
+  //
+  // ---------------------------------------------
+  private createComposerFetch = <
+    T extends
+      | QueryComposer<any, any>
+      | ((params: any) => { [key: string]: Query<any[], any> }),
+  >(
+    source: T,
+  ): T extends QueryComposer<infer Params, infer R>
+    ? (params: Params) => Promise<R>
+    : T extends (params: infer Params) => infer QR
+    ? (params: Params) => Promise<{
+        [K in keyof QR]: QR[K] extends Query<any, infer RR>
+          ? Result<RR>
+          : never;
+      }>
+    : never => {
+    const composer: QueryComposer<any, any> =
+      typeof source === 'function' ? new QueryComposer(source) : source;
+
+    const createComposedQuery = composer.create();
+
+    return ((params: any) =>
+      new Promise<any>((resolve) => {
+        const r = createComposedQuery(params);
+
+        if ('result' in r) {
+          resolve(r.result);
+        } else {
+          fetchQueries(r.queries, this.fetchLoop).then((queryResult) => {
+            if (r.map) {
+              resolve(r.map(queryResult));
+            } else {
+              resolve(queryResult);
+            }
+          });
+        }
+      })) as any;
+  };
+
+  private createComposerSubscribe = <
     T extends
       | QueryComposer<any, any>
       | ((params: any) => { [key: string]: Query<any[], any> }),
@@ -120,27 +188,5 @@ export class QueryClient {
     };
 
     return proxy as any;
-  };
-
-  getSubscribingFetchTickets = (): FetchTicket[] => {
-    const tickets = [];
-
-    for (const subscriber of this.subscribers) {
-      tickets.push(...subscriber.getSubscribingFetchTickets());
-    }
-
-    return tickets;
-  };
-
-  invalidateSubscriptions = (...keys: symbol[]) => {
-    const index = new Set<symbol>(keys);
-
-    const tickets = this.getSubscribingFetchTickets().filter(({ key }) =>
-      index.has(key),
-    );
-
-    for (const ticket of tickets) {
-      this.fetchLoop.add(ticket);
-    }
   };
 }

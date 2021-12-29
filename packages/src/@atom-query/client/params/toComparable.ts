@@ -1,3 +1,4 @@
+import { dummyParams } from '@atom-query/client/client/dummyParams';
 import deepEqual from 'fast-deep-equal';
 
 export class ShallowComparableArray {
@@ -55,6 +56,10 @@ export function toComparable(...args: any[]): any[] {
   const trimedArgs = args.slice(0, findLastExistsIndex(args));
 
   return trimedArgs.map((arg) => {
+    if (arg === dummyParams) {
+      return arg;
+    }
+
     const type = typeof arg;
 
     if (type !== 'object') {

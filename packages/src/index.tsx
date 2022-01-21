@@ -33,6 +33,22 @@ const indexerData = compose(() => {
   };
 });
 
+const indexerDataCounts = compose(() => {
+  return {
+    anc: anc({}),
+    deposit: deposit({}),
+    collaterals: collaterals({}),
+  };
+}).map((r) => {
+  return {
+    anc: r.anc.success ? r.anc.value.length : 0,
+    deposit: r.deposit.success ? r.deposit.value.total_ust_deposits.length : 0,
+    collaterals: r.collaterals.success
+      ? r.collaterals.value.total_ust_deposits.length
+      : 0,
+  };
+});
+
 const jsonViewOptions: Omit<ReactJsonViewProps, 'src'> = {
   iconStyle: 'triangle',
   theme: 'monokai',
@@ -43,12 +59,24 @@ const jsonViewOptions: Omit<ReactJsonViewProps, 'src'> = {
 };
 
 function App() {
-  const { data } = useAtomQuery('indexer_data', indexerData, []);
+  const { data: indexerDataResult } = useAtomQuery(
+    'indexer_data',
+    indexerData,
+    [],
+  );
+
+  const { data: indexerDataCountsResult } = useAtomQuery(
+    'indexer_data_count',
+    indexerDataCounts,
+    [],
+  );
 
   return (
     <div>
-      <h1>Indexer data</h1>
-      {data && <JsonView src={data} {...jsonViewOptions} />}
+      <h1>Indexer data ({JSON.stringify(indexerDataCountsResult)})</h1>
+      {indexerDataResult && (
+        <JsonView src={indexerDataResult} {...jsonViewOptions} />
+      )}
     </div>
   );
 }

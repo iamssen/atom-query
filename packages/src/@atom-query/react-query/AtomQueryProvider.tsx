@@ -15,6 +15,16 @@ export interface AtomQueryProviderProps {
 // @ts-ignore
 const AtomQueryContext: Context<AtomQuery> = createContext<AtomQuery>();
 
+/**
+ * @example
+ * ```
+ * const atomQuery = new AtomQuery()
+ *
+ * <AtomQueryProvider atomQuery={atomQuery}>
+ *   <YOUR_APP />
+ * </AtomQueryProvider>
+ * ```
+ */
 export function AtomQueryProvider({
   children,
   atomQuery,
@@ -26,6 +36,16 @@ export function AtomQueryProvider({
   );
 }
 
+/**
+ * Get `AtomQuery` client
+ */
+export function useAtomQueryClient(): AtomQuery {
+  return useContext(AtomQueryContext);
+}
+
+/**
+ * Sample as `AtomQuery.createFetch(Composer)`
+ */
 export function useAtomQueryFetch<Args extends unknown[], R>(
   composer: Composer<Args, R>,
 ) {

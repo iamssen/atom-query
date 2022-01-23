@@ -1,6 +1,6 @@
 import { isQuery } from '../atoms/query';
 import { FetchRunner } from '../fetch/FetchRunner';
-import { QueryOrValue, ResolvedResult, Result } from '../types';
+import { QueryOrValue, QueryResult, Result } from '../types';
 
 let globalFetchRunner: FetchRunner;
 
@@ -15,7 +15,7 @@ function getGlobalFetchRunner(): FetchRunner {
 export function fetchQuery<T extends Record<string, QueryOrValue<any>>>(
   obj: T,
   runner: FetchRunner = getGlobalFetchRunner(),
-): Promise<ResolvedResult<T>> {
+): Promise<QueryResult<T>> {
   const promises: Promise<any>[] = [];
   const keys = Object.keys(obj);
 

@@ -17,6 +17,30 @@ export function createQueryFn<T extends any[], R>(
   };
 }
 
+/**
+ * Wrapped useQuery() of react-query with AtomQuery
+ *
+ * @param key pass to react-query `useQuery(key)`
+ * @param composer Composer object
+ * @param args pass to composer `compose(...args)`
+ * @param options pass to react-query `useQuery(_, options)`
+ *
+ * @example
+ * ```
+ * const com = compose((a: number, b: number) => {
+ *   return {
+ *     x: foo({ a }),
+ *     y: bar({ b }),
+ *   }
+ * }).map(({ x, y }) => {
+ *   return x.success && y.success
+ *     ? x.value + y.value
+ *     : 0
+ * })
+ *
+ * const { data: value } = useAtomQuery('queryKey', com, [ 1, 2 ])
+ * ```
+ */
 export function useAtomQuery<Args extends unknown[], R>(
   key: string,
   composer: Composer<Args, R>,

@@ -27,7 +27,7 @@ export type Result<T> = Succeed<T> | Fault;
 
 export type QueryOrValue<T> = Query<any, T> | T;
 
-export type ResolvedResult<T extends Record<string, QueryOrValue<any>>> = {
+export type QueryResult<T extends Record<string, QueryOrValue<any>>> = {
   readonly [K in keyof T]: T[K] extends QueryOrValue<infer R>
     ? Result<R>
     : never;

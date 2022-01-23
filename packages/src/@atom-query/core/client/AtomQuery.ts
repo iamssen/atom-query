@@ -1,16 +1,98 @@
 import { Composer, isComposer, QueryComposer } from '../atoms/compose';
 import { createFID, FetchRunner } from '../fetch/FetchRunner';
-import { Query, QueryOrValue, ResolvedResult } from '../types';
+import { Query, QueryOrValue, QueryResult } from '../types';
 import { fetchQuery } from './fetchQuery';
 
 interface AtomQueryFetch {
+  /**
+   * fetch data using Query objects
+   *
+   * @example
+   * ```
+   * await { x, y } = await atom.fetch({
+   *    x: foo({ a: 10 }),
+   *    y: bar({ b: 20 }),
+   * })
+   * ```
+   */
   <R extends Record<string, QueryOrValue<any>>>(obj: R): Promise<
-    ResolvedResult<R>
+    QueryResult<R>
   >;
+
+  /**
+   * fetch data using Composer object
+   *
+   * @example
+   * ```
+   * const com = compose((id: number, currency: string) => {
+   *   return {
+   *     balance: balance(id),
+   *     exchangeRate: exchangeRate(currency),
+   *   }
+   * }).map(({ balance, exchangeRate }) => {
+   *   return balance.success && exchangeRate.success
+   *     ? balance.value * exchangeRate.value
+   *     : 0
+   * })
+   *
+   * const value = await atom.fetch(com, 15, 'krw')
+   * ```
+   */
   <Args extends unknown[], R>(
     composer: Composer<Args, R>,
-    ...rest: [...Args, FetchRunner?]
-  ): Promise<ResolvedResult<R>>;
+    ...args: Args
+  ): Promise<QueryResult<R>>;
+}
+
+interface AtomQueryCreateFetch {
+  /**
+   * create fetch function
+   *
+   * @example
+   * ```
+   * const fn = atom.createFetch((a: number, b: number) => {
+   *   return {
+   *     x: foo({ a }),
+   *     y: bar({ b }),
+   *   }
+   * })
+   *
+   * await { x, y } = await fn()
+   * ```
+   */
+  <T extends (...args: any[]) => Record<string, QueryOrValue<any>>>(
+    source: T,
+  ): T extends (...args: infer Args) => infer R
+    ? (...args: Args) => Promise<QueryResult<R>>
+    : never;
+
+  /**
+   * create fetch function using Composer object
+   *
+   * @example
+   * ```
+   * const com = compose((id: number, currency: string) => {
+   *   return {
+   *     balance: balance(id),
+   *     exchangeRate: exchangeRate(currency),
+   *   }
+   * }).map(({ balance, exchangeRate }) => {
+   *   return balance.success && exchangeRate.success
+   *     ? balance.value * exchangeRate.value
+   *     : 0
+   * })
+   *
+   * const fn = atom.createFetch(com)
+   *
+   * const value = await fn(15, 'krw')
+   * ```
+   */
+  <T extends Composer<any, any>>(source: T): T extends Composer<
+    infer Args,
+    infer R
+  >
+    ? (...args: Args) => Promise<QueryResult<R>>
+    : never;
 }
 
 export class AtomQuery {
@@ -24,29 +106,15 @@ export class AtomQuery {
     return this.runner.fetchCount.get(createFID(query)) ?? 0;
   };
 
-  fetch: AtomQueryFetch = (first: any, ...rest: any[]) => {
+  fetch: AtomQueryFetch = (first: any, ...args: any[]) => {
     if (isComposer(first)) {
-      const args =
-        rest[rest.length - 1] instanceof FetchRunner
-          ? rest.slice(0, rest.length - 1)
-          : rest;
       return this.createFetch(first)(...args);
     } else {
       return fetchQuery(first, this.runner);
     }
   };
 
-  createFetch = <
-    T extends
-      | Composer<any, any>
-      | ((...args: any[]) => Record<string, QueryOrValue<any>>),
-  >(
-    source: T,
-  ): T extends Composer<infer Args, infer R>
-    ? (...args: Args) => Promise<ResolvedResult<R>>
-    : T extends (...args: infer Args) => infer R
-    ? (...args: Args) => Promise<ResolvedResult<R>>
-    : never => {
+  createFetch: AtomQueryCreateFetch = (source: any) => {
     const composer: Composer<any, any> =
       typeof source === 'function' ? new QueryComposer([source]) : source;
 

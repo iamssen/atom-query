@@ -27,6 +27,29 @@ describe('AtomQuery', () => {
     expect(atom.fetchCount(bar({ c: 'hello' }))).toBe(1);
   });
 
+  test('should get result from composer fetch', async () => {
+    // Arrange
+    const atom = new AtomQuery();
+    const com = compose((a: number, b: number, c: string) => {
+      return {
+        x: foo({ a, b }),
+        y: bar({ c }),
+        z: 45,
+      };
+    });
+
+    // Act
+    const { x, y, z } = await atom.fetch(com, 10, 20, 'hello');
+
+    // Assert
+    expect(x).toEqual({ success: true, value: 30 });
+    expect(y).toEqual({ success: true, value: 'hello' });
+    expect(z).toEqual({ success: true, value: 45 });
+
+    expect(atom.fetchCount(foo({ a: 10, b: 20 }))).toBe(1);
+    expect(atom.fetchCount(bar({ c: 'hello' }))).toBe(1);
+  });
+
   test('should fetch duplicated query only once', async () => {
     // Arrange
     const atom = new AtomQuery();

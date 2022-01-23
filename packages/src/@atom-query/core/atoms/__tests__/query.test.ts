@@ -1,5 +1,5 @@
 import { delay } from '__helpers__';
-import { createId, query } from '../query';
+import { createQueryId, query } from '../query';
 
 describe('query()', () => {
   test('should get Query object', async () => {
@@ -17,7 +17,7 @@ describe('query()', () => {
     // Assert
     expect(t1.key).toBe(q1.key);
     expect(t1.args).toEqual([{ a: 1, b: 2 }]);
-    expect(t1.id).toBe(createId({ a: 1, b: 2 }));
+    expect(t1.id).toBe(createQueryId({ a: 1, b: 2 }));
     expect(t1.cacheTime).toBe(1000);
     await expect(t1.fetch(...t1.args)).resolves.toBe(3);
 

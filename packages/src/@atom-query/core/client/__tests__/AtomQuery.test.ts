@@ -1,4 +1,4 @@
-import { delay } from '__helpers__/delay';
+import { delay } from '__helpers__';
 import { compose } from '../../atoms/compose';
 import { query } from '../../atoms/query';
 import { AtomQuery } from '../AtomQuery';
@@ -12,14 +12,16 @@ describe('AtomQuery', () => {
     const atom = new AtomQuery();
 
     // Act
-    const { x, y } = await atom.fetch({
+    const { x, y, z } = await atom.fetch({
       x: foo({ a: 10, b: 20 }),
       y: bar({ c: 'hello' }),
+      z: 45,
     });
 
     // Assert
     expect(x).toEqual({ success: true, value: 30 });
     expect(y).toEqual({ success: true, value: 'hello' });
+    expect(z).toEqual({ success: true, value: 45 });
 
     expect(atom.fetchCount(foo({ a: 10, b: 20 }))).toBe(1);
     expect(atom.fetchCount(bar({ c: 'hello' }))).toBe(1);

@@ -1,4 +1,4 @@
-import { delay } from '__helpers__/delay';
+import { delay } from '__helpers__';
 import { createId, query } from '../query';
 
 describe('query()', () => {

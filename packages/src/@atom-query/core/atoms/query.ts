@@ -61,3 +61,14 @@ function queryExpand<Args extends unknown[], R>(
 }
 
 query.expand = queryExpand;
+
+export function isQuery(obj: any): obj is Query<any, any> {
+  return (
+    typeof obj === 'object' &&
+    typeof obj.key === 'string' &&
+    Array.isArray(obj.args) &&
+    typeof obj.fetch === 'function' &&
+    typeof obj.id === 'string' &&
+    typeof obj.cacheTime === 'number'
+  );
+}

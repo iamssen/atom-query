@@ -1,7 +1,17 @@
-import { Composer, QueryComposer } from '../atoms/compose';
+import { Composer, isComposer, QueryComposer } from '../atoms/compose';
 import { createFID, FetchRunner } from '../fetch/FetchRunner';
-import { Query, QueryOrValue, ResolvedResult, Result } from '../types';
+import { Query, QueryOrValue, ResolvedResult } from '../types';
 import { fetchQuery } from './fetchQuery';
+
+interface AtomQueryFetch {
+  <R extends Record<string, QueryOrValue<any>>>(obj: R): Promise<
+    ResolvedResult<R>
+  >;
+  <Args extends unknown[], R>(
+    composer: Composer<Args, R>,
+    ...rest: [...Args, FetchRunner?]
+  ): Promise<ResolvedResult<R>>;
+}
 
 export class AtomQuery {
   private readonly runner: FetchRunner;
@@ -14,14 +24,16 @@ export class AtomQuery {
     return this.runner.fetchCount.get(createFID(query)) ?? 0;
   };
 
-  fetch = async <T extends Record<string, Query<any, any>>>(
-    obj: T,
-  ): Promise<{
-    readonly [K in keyof T]: T[K] extends Query<any, infer R>
-      ? Result<R>
-      : never;
-  }> => {
-    return fetchQuery(obj, this.runner);
+  fetch: AtomQueryFetch = (first: any, ...rest: any[]) => {
+    if (isComposer(first)) {
+      const args =
+        rest[rest.length - 1] instanceof FetchRunner
+          ? rest.slice(0, rest.length - 1)
+          : rest;
+      return this.createFetch(first)(...args);
+    } else {
+      return fetchQuery(first, this.runner);
+    }
   };
 
   createFetch = <

@@ -1,4 +1,4 @@
-import { delay } from '__helpers__/delay';
+import { delay } from '__helpers__';
 import { compose } from '../compose';
 import { query } from '../query';
 

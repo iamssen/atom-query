@@ -97,6 +97,7 @@ query.expand = expandedQuery;
 // ---------------------------------------------
 export function isQuery(obj: any): obj is Query<any, any> {
   return (
+    !!obj &&
     typeof obj === 'object' &&
     typeof obj.key === 'string' &&
     Array.isArray(obj.args) &&

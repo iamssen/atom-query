@@ -1,4 +1,9 @@
-import { Composer } from '@atom-query/core';
+import {
+  Composer,
+  MapComposer,
+  QueryComposer,
+  QueryResult,
+} from '@atom-query/core';
 import { useMemo } from 'react';
 import {
   QueryFunctionContext,
@@ -41,18 +46,33 @@ export function createQueryFn<T extends any[], R>(
  * const { data: value } = useAtomQuery('queryKey', com, [ 1, 2 ])
  * ```
  */
-export function useAtomQuery<Args extends unknown[], R>(
+export function useAtomQuery<C extends Composer<any, any>>(
   key: string,
-  composer: Composer<Args, R>,
-  args: Args,
-  options?: Omit<UseQueryOptions<R>, 'queryKey' | 'queryFn'>,
-): UseQueryResult<R> {
-  const fetchFn = useAtomQueryFetch<Args, R>(composer);
+  composer: C,
+  args: C extends Composer<infer Args, any> ? Args : [],
+  options?: Omit<
+    UseQueryOptions<
+      C extends QueryComposer<any, infer R>
+        ? QueryResult<R>
+        : C extends MapComposer<any, infer R>
+        ? R
+        : any
+    >,
+    'queryKey' | 'queryFn'
+  >,
+): UseQueryResult<
+  C extends QueryComposer<any, infer R>
+    ? QueryResult<R>
+    : C extends MapComposer<any, infer R>
+    ? R
+    : never
+> {
+  const fetchFn = useAtomQueryFetch<any, any>(composer);
 
   const invalidatedArgs = useValueInvalidate(args);
 
   const queryFn = useMemo(() => {
-    return createQueryFn<Args, R>(fetchFn as any);
+    return createQueryFn<any, any>(fetchFn as any);
   }, [fetchFn]);
 
   return useQuery({

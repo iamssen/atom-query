@@ -1,5 +1,11 @@
+import {
+  PrimitiveParams,
+  Query,
+  QueryFunction,
+  Result,
+} from '@atom-query/core/types';
 import { delay } from '__helpers__';
-import { compose } from '../../atoms/compose';
+import { compose, MapComposer, QueryComposer } from '../../atoms/compose';
 import { query } from '../../atoms/query';
 import { AtomQuery } from '../AtomQuery';
 
@@ -39,7 +45,7 @@ describe('AtomQuery', () => {
     });
 
     // Act
-    const { x, y, z } = await atom.fetch(com, 10, 20, 'hello');
+    const { x, y, z } = await atom.fetchCompose(com, 10, 20, 'hello');
 
     // Assert
     expect(x).toEqual({ success: true, value: 30 });
@@ -143,5 +149,45 @@ describe('AtomQuery', () => {
     // Assert
     expect(f1).toBe(f2);
     expect(f1).not.toBe(f3);
+  });
+
+  test('typings', async () => {
+    const atom = new AtomQuery();
+
+    const x: QueryFunction<[PrimitiveParams], number> = query(() =>
+      delay(10, 10),
+    );
+
+    const com1: QueryComposer<[], { x: Query<[PrimitiveParams], number> }> =
+      compose(() => {
+        return {
+          x: x({}),
+        };
+      });
+
+    const v1 = await atom.fetchCompose(com1);
+
+    const v1x: Result<number> = v1.x;
+
+    expect(v1x).toEqual({ success: true, value: 10 });
+
+    const com2: MapComposer<[], number> = com1.map((v) =>
+      v.x.success ? v.x.value : 0,
+    );
+
+    const v2: number = await atom.fetchCompose(com2);
+
+    expect(v2).toBe(10);
+
+    const f3 = atom.createFetch(com1);
+    const v3 = await f3();
+    const v3x: Result<number> = await v3.x;
+
+    expect(v3x).toEqual({ success: true, value: 10 });
+
+    const f4 = atom.createFetch(com2);
+    const v4: number = await f4();
+
+    expect(v4).toBe(10);
   });
 });

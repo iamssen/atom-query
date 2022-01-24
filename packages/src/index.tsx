@@ -7,21 +7,21 @@ import { QueryClient, QueryClientProvider } from 'react-query';
 
 const anc = query(
   () =>
-    fetch('https://api.anchorprotocol.com/api/v1/anc/1d').then((res) =>
-      res.json(),
+    fetch('https://api.anchorprotocol.com/api/v1/anc/1d').then(
+      (res) => res.json() as Promise<any[]>,
     ),
   { cacheTime: 1000 * 60 * 5 },
 );
 
 const deposit = query(() =>
-  fetch('https://api.anchorprotocol.com/api/v1/deposit/1d').then((res) =>
-    res.json(),
+  fetch('https://api.anchorprotocol.com/api/v1/deposit/1d').then(
+    (res) => res.json() as Promise<{ total_ust_deposits: any[] }>,
   ),
 );
 
 const collaterals = query(() =>
-  fetch('https://api.anchorprotocol.com/api/v1/deposit/1d').then((res) =>
-    res.json(),
+  fetch('https://api.anchorprotocol.com/api/v1/deposit/1d').then(
+    (res) => res.json() as Promise<{ total_ust_deposits: any[] }>,
   ),
 );
 
@@ -41,13 +41,21 @@ const indexerDataCounts = compose(() => {
   };
 }).map((r) => {
   return {
-    anc: r.anc.success ? r.anc.value.length : 0,
-    deposit: r.deposit.success ? r.deposit.value.total_ust_deposits.length : 0,
+    anc: r.anc.success ? (r.anc.value.length as number) : 0,
+    deposit: r.deposit.success
+      ? (r.deposit.value.total_ust_deposits.length as number)
+      : 0,
     collaterals: r.collaterals.success
-      ? r.collaterals.value.total_ust_deposits.length
+      ? (r.collaterals.value.total_ust_deposits.length as number)
       : 0,
   };
 });
+
+const atom = new AtomQuery();
+const x = atom.createFetch(indexerData);
+const y = atom.createFetch(indexerDataCounts);
+x().then((r) => console.log(r.anc));
+y().then((r) => console.log(r.anc));
 
 const jsonViewOptions: Omit<ReactJsonViewProps, 'src'> = {
   iconStyle: 'triangle',
@@ -70,6 +78,8 @@ function App() {
     indexerDataCounts,
     [],
   );
+
+  console.log(indexerDataResult?.anc, indexerDataCountsResult?.anc);
 
   return (
     <div>

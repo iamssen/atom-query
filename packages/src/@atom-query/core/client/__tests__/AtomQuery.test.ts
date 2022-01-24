@@ -116,4 +116,32 @@ describe('AtomQuery', () => {
     // Assert
     expect(v2).toBe('60');
   });
+
+  test('should return same the fetch function to the same composer', () => {
+    // Arrange
+    const atom = new AtomQuery();
+
+    const c1 = compose((a: number, b: number) => {
+      return {
+        x: foo({ a, b }),
+        y: foo({ a: b, b: a }),
+      };
+    });
+
+    const c2 = compose((a: number, b: number) => {
+      return {
+        x: foo({ a, b }),
+        y: foo({ a: b, b: a }),
+      };
+    });
+
+    // Act
+    const f1 = atom.createFetch(c1);
+    const f2 = atom.createFetch(c1);
+    const f3 = atom.createFetch(c2);
+
+    // Assert
+    expect(f1).toBe(f2);
+    expect(f1).not.toBe(f3);
+  });
 });

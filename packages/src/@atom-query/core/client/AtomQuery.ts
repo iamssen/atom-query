@@ -44,6 +44,10 @@ interface AtomQueryFetch {
   ): Promise<QueryResult<R>>;
 }
 
+type AtomQueryFetchFunction<Args extends unknown[], R> = (
+  ...args: Args
+) => Promise<QueryResult<R>>;
+
 interface AtomQueryCreateFetch {
   /**
    * create fetch function
@@ -63,7 +67,7 @@ interface AtomQueryCreateFetch {
   <T extends (...args: any[]) => Record<string, QueryOrValue<any>>>(
     source: T,
   ): T extends (...args: infer Args) => infer R
-    ? (...args: Args) => Promise<QueryResult<R>>
+    ? AtomQueryFetchFunction<Args, R>
     : never;
 
   /**
@@ -91,44 +95,55 @@ interface AtomQueryCreateFetch {
     infer Args,
     infer R
   >
-    ? (...args: Args) => Promise<QueryResult<R>>
+    ? AtomQueryFetchFunction<Args, R>
     : never;
 }
 
 export class AtomQuery {
-  private readonly runner: FetchRunner;
+  readonly #runner: FetchRunner;
+  readonly #cachedFetches = new Map<
+    Composer<any, any>,
+    AtomQueryFetchFunction<any, any>
+  >();
 
   constructor() {
-    this.runner = new FetchRunner();
+    this.#runner = new FetchRunner();
   }
 
   fetchCount = (query: Query<any, any>): number => {
-    return this.runner.fetchCount.get(createFID(query)) ?? 0;
+    return this.#runner.fetchCount.get(createFID(query)) ?? 0;
   };
 
   fetch: AtomQueryFetch = (first: any, ...args: any[]) => {
     if (isComposer(first)) {
       return this.createFetch(first)(...args);
     } else {
-      return fetchQuery(first, this.runner);
+      return fetchQuery(first, this.#runner);
     }
   };
 
   createFetch: AtomQueryCreateFetch = (source: any) => {
-    const composer: Composer<any, any> =
-      typeof source === 'function' ? new QueryComposer([source]) : source;
+    const isInstantComposer = typeof source === 'function';
 
-    return (async (...a: any[]) => {
+    const composer: Composer<any, any> = isInstantComposer
+      ? new QueryComposer([source])
+      : source;
+
+    if (!isInstantComposer && this.#cachedFetches.has(composer)) {
+      return this.#cachedFetches.get(composer)!;
+    }
+
+    const fetchFn: AtomQueryFetchFunction<any, any> = async (...a: any[]) => {
       const {
         args,
         fetches: [firstFetch, ...restFetches],
         mappers,
       } = composer.build(...a);
 
-      let values: any = await fetchQuery(firstFetch(...args), this.runner);
+      let values: any = await fetchQuery(firstFetch(...args), this.#runner);
 
       for (const fetch of restFetches) {
-        values = await fetchQuery(fetch(values), this.runner);
+        values = await fetchQuery(fetch(values), this.#runner);
       }
 
       if (!mappers || mappers.length === 0) {
@@ -142,6 +157,12 @@ export class AtomQuery {
       }
 
       return value;
-    }) as any;
+    };
+
+    if (!isInstantComposer) {
+      this.#cachedFetches.set(composer, fetchFn);
+    }
+
+    return fetchFn;
   };
 }

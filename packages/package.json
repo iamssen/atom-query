@@ -8,7 +8,7 @@
     "app:browser": "PORT=3000 TS_NODE_PROJECT=tsconfig.script.json node -r ts-node/register -r tsconfig-paths/register scripts/start.ts",
     "start": "multiplerun dev",
     "build": "tsc --noEmit && vite build",
-    "pack": "rocket-punch build",
+    "pack": "CI=true yarn run test && rocket-punch build",
     "publish": "rocket-punch publish",
     "storybook": "start-storybook -p 6006 -s public",
     "build-storybook": "build-storybook -s public",

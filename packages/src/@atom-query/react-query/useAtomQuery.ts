@@ -12,7 +12,7 @@ import {
   UseQueryResult,
 } from 'react-query';
 import { useAtomQueryFetch } from './AtomQueryProvider';
-import { useValueInvalidate } from './useValueInvalidate';
+import { useArgsInvalidate } from './useArgsInvalidate';
 
 export function createQueryFn<T extends any[], R>(
   fn: (...args: T) => Promise<R>,
@@ -69,7 +69,7 @@ export function useAtomQuery<C extends Composer<any, any>>(
 > {
   const fetchFn = useAtomQueryFetch<any, any>(composer);
 
-  const invalidatedArgs = useValueInvalidate(args);
+  const invalidatedArgs = useArgsInvalidate(args);
 
   const queryFn = useMemo(() => {
     return createQueryFn<any, any>(fetchFn as any);

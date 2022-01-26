@@ -1,7 +1,7 @@
 {
   "$schema": "https://rocket-hangar.github.io/rocket-punch/schemas/packages.json",
   "@atom-query/*": {
-    "version": "0.0.8",
+    "version": "0.0.9",
     "tag": "latest"
   }
 }

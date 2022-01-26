@@ -1,11 +1,14 @@
-import { ValueInvalidator } from '@atom-query/utils';
+import { ArgsInvalidator } from '@atom-query/utils';
 import { useEffect, useState } from 'react';
 
-export function useValueInvalidate<T>(nextValue: T, delay: number = 1): T {
+export function useArgsInvalidate<T extends unknown[]>(
+  nextValue: T,
+  delay: number = 1,
+): T {
   const [value, setValue] = useState<T>(nextValue);
 
   const [invalidator] = useState(() => {
-    return new ValueInvalidator(nextValue, delay);
+    return new ArgsInvalidator(nextValue, delay);
   });
 
   useEffect(() => {

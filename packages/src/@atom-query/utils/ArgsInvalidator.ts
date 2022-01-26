@@ -1,10 +1,11 @@
 import { BehaviorSubject, Observable } from 'rxjs';
 
-export class ValueInvalidator<T> {
+export class ArgsInvalidator<T extends unknown[]> {
   #timeoutId: any = 0;
+  #latestValue: T | null = null;
   #value: T;
   #subject: BehaviorSubject<T>;
-  #delay: number;
+  readonly #delay: number;
 
   constructor(initialValue: T, delay: number = 1) {
     this.#value = initialValue;
@@ -30,7 +31,14 @@ export class ValueInvalidator<T> {
 
   #execute = () => {
     this.#timeoutId = 0;
-    this.#subject.next(this.#value);
+
+    if (
+      !this.#latestValue ||
+      !shallowArrayEqual(this.#latestValue, this.#value)
+    ) {
+      this.#subject.next(this.#value);
+      this.#latestValue = this.#value;
+    }
   };
 
   destory = () => {
@@ -40,4 +48,19 @@ export class ValueInvalidator<T> {
 
     this.#subject.unsubscribe();
   };
+}
+
+function shallowArrayEqual(a: any[], b: any[]): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  let i: number = a.length;
+  while (--i >= 0) {
+    if (a[i] !== b[i]) {
+      return false;
+    }
+  }
+
+  return true;
 }
